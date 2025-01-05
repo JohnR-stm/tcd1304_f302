@@ -5,9 +5,9 @@
 ///
 ///  ICG --- TIM1(CH1) - PA8. TIM1 - OnePulseMode. TIM1 - Master for TIM2 & TIM3
 ///    
-///  SH --- TIM2(CH1) - PA5. TIM2 - OPM. Master for ??? 
+///  SH --- TIM2(CH1) - PA5. TIM2 - OPM. Master for TIM4 (ITR1) ??? 
 ///  
-///  CLK --- TIM3(CH4) - PB1. TIM3 - ResetMode ITR0. Master for TIM4 (ITR1)
+///  CLK --- TIM3(CH4) - PB1. TIM3 - ResetMode ITR0. Master for  ???
 ///
 /// --------- P I N S ----------------------------------------------------------
 ///
@@ -31,7 +31,7 @@ static void ccd_SHsygnal_init(void);
 static void ccd_CLK_init(void);
 
 //------------------------------------------------------------------------------
-//  ALL TIMERS INIT
+//  ALL TIMERS INIT/START
 //------------------------------------------------------------------------------
 
 void ccd_timers_init(void)
@@ -49,7 +49,6 @@ void ccd_timers_start(void)
   LL_TIM_EnableCounter(TIM3);
   
   LL_TIM_EnableCounter(TIM16);
-  
 }
 
 //------------------------------------------------------------------------------
@@ -69,10 +68,11 @@ static void ccd_MasterClock_init(void)
   //NVIC_SetPriority(TIM1_UP_TIM16_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
   //NVIC_EnableIRQ(TIM1_UP_TIM16_IRQn);
   
+  //--- Base Init TIM ---//
   LL_TIM_InitTypeDef TIM_InitStruct = {0};
-  TIM_InitStruct.Prescaler = 63;
+  TIM_InitStruct.Prescaler = 64 - 1;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 21000;
+  TIM_InitStruct.Autoreload = 21000 - 1;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   TIM_InitStruct.RepetitionCounter = 0; // RCR reg
   LL_TIM_Init(TIM16, &TIM_InitStruct);
@@ -84,15 +84,14 @@ static void ccd_MasterClock_init(void)
   TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
   TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
   TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
-  TIM_OC_InitStruct.CompareValue = 10000;
+  TIM_OC_InitStruct.CompareValue = 10000 - 1;
   TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
   TIM_OC_InitStruct.OCNPolarity = LL_TIM_OCPOLARITY_HIGH;
   TIM_OC_InitStruct.OCIdleState = LL_TIM_OCIDLESTATE_LOW;
   TIM_OC_InitStruct.OCNIdleState = LL_TIM_OCIDLESTATE_LOW;
   LL_TIM_OC_Init(TIM16, LL_TIM_CHANNEL_CH1, &TIM_OC_InitStruct);
   LL_TIM_OC_DisableFast(TIM16, LL_TIM_CHANNEL_CH1);
-  
-  LL_TIM_CC_EnableChannel(TIM16, LL_TIM_CHANNEL_CH1);
+  LL_TIM_CC_EnableChannel(TIM16, LL_TIM_CHANNEL_CH1);  //  Enable channel 1
   //TIM16->CCER |= TIM_CCER_CC1E;   /// Enable Ch1 (CC1E) /// | TIM_CCER_CC1P
   
   //---  BDTR  ---//
@@ -171,10 +170,11 @@ static void ccd_ICGsygnal_init(void)
   LL_TIM_IC_SetPolarity(TIM1, LL_TIM_CHANNEL_CH2, LL_TIM_IC_POLARITY_RISING);
   LL_TIM_DisableIT_TRIG(TIM1);
   LL_TIM_DisableDMAReq_TRIG(TIM1);
+  
+  //-- MASTER --///
   LL_TIM_SetTriggerOutput(TIM1, LL_TIM_TRGO_ENABLE);
-  LL_TIM_SetTriggerOutput2(TIM1, LL_TIM_TRGO2_OC4_RISINGFALLING);
+  LL_TIM_SetTriggerOutput2(TIM1, LL_TIM_TRGO2_OC4_RISINGFALLING); // ??
   LL_TIM_EnableMasterSlaveMode(TIM1);
-  //LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH2);  // Enable channel 2
   
   //---  BDTR  ---//
   LL_TIM_BDTR_InitTypeDef TIM_BDTRInitStruct = {0};
@@ -256,7 +256,7 @@ static void ccd_SHsygnal_init(void)
   LL_TIM_OC_DisableFast(TIM2, LL_TIM_CHANNEL_CH2);
   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH2);  // Enable channel 2
   
-  //--- SETTINGS ---//
+  //--- Slave Settings -- ITR0 ---//
   LL_TIM_SetOnePulseMode(TIM2, LL_TIM_ONEPULSEMODE_SINGLE);
   LL_TIM_SetTriggerInput(TIM2, LL_TIM_TS_ITR0);
   LL_TIM_SetSlaveMode(TIM2, LL_TIM_SLAVEMODE_TRIGGER);
@@ -313,7 +313,7 @@ static void ccd_CLK_init(void)
   LL_TIM_OC_EnableFast(TIM3, LL_TIM_CHANNEL_CH4);
   LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);  // Enable channel 4
   
-  //--- SETTINGS ---//
+  //--- Slave Settings -- ITR0 ---//
   LL_TIM_SetTriggerInput(TIM3, LL_TIM_TS_ITR0);
   LL_TIM_SetSlaveMode(TIM3, LL_TIM_SLAVEMODE_RESET);
   LL_TIM_DisableIT_TRIG(TIM3);
