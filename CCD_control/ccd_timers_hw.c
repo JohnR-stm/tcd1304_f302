@@ -1,5 +1,6 @@
+///      Change the text below to suit your controller
 ///------------------------------------------------------------------------------
-///  Master Clock -- TIM16 -- PA6 (CH4) connect to PA9 (TIM1 -- TI2FP2)
+///     ccd_Sync_init -- TIM16 -- PA6 (CH4) connect to PA9 (TIM1 -- TI2FP2)
 ///
 ///  -------- C C D     S y g n a l s  -----------------------------------------
 ///
@@ -9,25 +10,26 @@
 ///  
 ///  CLK --- TIM3(CH4) - PB1. TIM3 - ResetMode ITR0. Master for  ???
 ///
-/// --------- P I N S ----------------------------------------------------------
-///
-///    Master   ICG      SH      CLK
-///     PA6     PA8      PA5     PB1
-///
+/// ------------------- P I N S ------------------------------------------------
+///                             |       |       S P I 
+///    Sync   ICG    SH    CLK  |  ADC  |    
+///    PA6    PA8    PA5   PB1  |  PA0  |    
+///                             |       |     
 ///------------------------------------------------------------------------------
 
-
+#ifdef STM32F3
 #include "stm32f3xx_ll_bus.h"
 #include "stm32f3xx_ll_gpio.h"
 #include "stm32f3xx_ll_tim.h"
+#endif
 
 #include "ccd_timers_hw.h"
 
 //------------------------------------------------------------------------------
 
-static void ccd_MasterClock_init(void);
-static void ccd_ICGsygnal_init(void);
-static void ccd_SHsygnal_init(void);
+static void ccd_Sync_init(void);
+static void ccd_ICG_init(void);
+static void ccd_SH_init(void);
 static void ccd_CLK_init(void);
 
 //------------------------------------------------------------------------------
@@ -36,19 +38,19 @@ static void ccd_CLK_init(void);
 
 void ccd_timers_init(void)
 {
-  ccd_MasterClock_init();
-  ccd_ICGsygnal_init();
-  ccd_SHsygnal_init();
+  ccd_Sync_init();
+  ccd_ICG_init();
+  ccd_SH_init();
   ccd_CLK_init();
 }
 
 void ccd_timers_start(void)
 {
-  LL_TIM_EnableCounter(TIM1);
-  LL_TIM_EnableCounter(TIM2);
-  LL_TIM_EnableCounter(TIM3);
+  //LL_TIM_EnableCounter(TIM1);
+  //LL_TIM_EnableCounter(TIM2);
+  LL_TIM_EnableCounter(TIM3); // Clk Tim
   
-  LL_TIM_EnableCounter(TIM16);
+  LL_TIM_EnableCounter(TIM16); // 
 }
 
 //------------------------------------------------------------------------------
@@ -57,7 +59,7 @@ void ccd_timers_start(void)
 //  Master Clock -- TIM16
 //------------------------------------------------------------------------------
 
-static void ccd_MasterClock_init(void)
+static void ccd_Sync_init(void)
 {
   //--- TIM 16 INIT ---//
   
@@ -125,7 +127,7 @@ static void ccd_MasterClock_init(void)
 // ICG -- TIM1
 //------------------------------------------------------------------------------
 
-static void ccd_ICGsygnal_init(void)
+static void ccd_ICG_init(void)
 {
   //--- TIM 1 INIT ---//
   
@@ -219,7 +221,7 @@ static void ccd_ICGsygnal_init(void)
 // SH -- TIM2
 //------------------------------------------------------------------------------
 
-static void ccd_SHsygnal_init(void)
+static void ccd_SH_init(void)
 {
   //--- TIM 2 INIT ---//
   

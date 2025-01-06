@@ -8,13 +8,15 @@
 ///
 ///------------------------------------------------------------------------------
 
-
+#ifdef STM32F3
 #include "stm32f3xx_ll_bus.h"
 #include "stm32f3xx_ll_gpio.h"
 #include "stm32f3xx_ll_tim.h"
 #include "stm32f3xx_ll_dma.h"
 #include "stm32f3xx_ll_adc.h"
+#endif
 
+#include "ccd_spi_hw.h"
 #include "ccd_adc_hw.h"
 
 //------------------------------------------------------------------------------
@@ -42,9 +44,7 @@ static void ccd_dma_adc_init(void);
 void ccd_adc_mdl_init(void)
 {
   ccd_adc_init();
-  
   ccd_tim_adc_init();
-  
   ccd_dma_adc_init();
   
   LL_ADC_REG_StartConversion(ADC1);
@@ -159,12 +159,12 @@ static void ccd_adc_init(void)
 
   //---  Internal Regulator ---//
   LL_ADC_EnableInternalRegulator(ADC1);
-  /* Delay for ADC internal voltage regulator stabilization. */
-  /* Compute number of CPU cycles to wait for, from delay in us. */
-  /* Note: Variable divided by 2 to compensate partially */
-  /* CPU processing cycles (depends on compilation optimization). */
-  /* Note: If system core clock frequency is below 200kHz, wait time */
-  /* is only a few CPU processing cycles. */
+  /*Delay for ADC internal voltage regulator stabilization. 
+    Compute number of CPU cycles to wait for, from delay in us. 
+    Note: Variable divided by 2 to compensate partially 
+    CPU processing cycles (depends on compilation optimization). 
+    Note: If system core clock frequency is below 200kHz, wait time 
+    is only a few CPU processing cycles. */
   uint32_t wait_loop_index;
   wait_loop_index = ((LL_ADC_DELAY_INTERNAL_REGUL_STAB_US * (SystemCoreClock / (100000 * 2))) / 10);
   while(wait_loop_index != 0)
@@ -224,10 +224,10 @@ void DMA1_Channel1_IRQHandler(void)
     
     TIM4->CR1 &= ~TIM_CR1_CEN;   /// Disable TIM4
 
-    for (uint16_t cnt = 0; cnt < CCD-1; cnt++)
-      Buf_ADC[cnt] = 0;
+    for (uint16_t cnt = 0; cnt < CCD; cnt++)
+      Buf_SPI[cnt] = Buf_ADC[cnt];
 
-    //DMA1_Channel1->CCR &= ~(DMA_CCR_TCIE | DMA_CCR_TEIE | DMA_CCR_EN);  /// DISABLE DMA Interrupts and DMA
+    ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD);
   }
   else
   {
