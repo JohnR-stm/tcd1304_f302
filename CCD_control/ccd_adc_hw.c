@@ -27,7 +27,7 @@
 volatile uint16_t Buf_ADC[CCD] = {0};
 volatile uint16_t Buf_SPI[CCD] = {0};
 
-
+volatile uint8_t Counter = 0;
 
 //------------------------------------------------------------------------------
 
@@ -224,10 +224,17 @@ void DMA1_Channel1_IRQHandler(void)
     
     TIM4->CR1 &= ~TIM_CR1_CEN;   /// Disable TIM4
 
-    for (uint16_t cnt = 0; cnt < CCD; cnt++)
-      Buf_SPI[cnt] = Buf_ADC[cnt];
-
-    ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD);
+    //---- Send to SPI ----///
+    Counter++;
+    if(Counter==25)
+    {
+      Counter = 0;
+      for (uint16_t cnt = 0; cnt < CCD; cnt++)
+        Buf_SPI[cnt] = Buf_ADC[cnt];
+      ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD);
+    }
+    //---- END Send to SPI ----///
+    
   }
   else
   {
