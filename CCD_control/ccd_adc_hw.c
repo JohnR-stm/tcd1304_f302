@@ -22,12 +22,15 @@
 //------------------------------------------------------------------------------
 
 
-#define CCD 3650
+
 
 volatile uint16_t Buf_ADC[CCD] = {0};
-volatile uint16_t Buf_SPI[CCD] = {0};
+
 
 volatile uint8_t Counter = 0;
+extern uint8_t flag_spi;
+
+extern uint16_t Buf_SPI[CCD];
 
 //------------------------------------------------------------------------------
 
@@ -225,13 +228,14 @@ void DMA1_Channel1_IRQHandler(void)
     TIM4->CR1 &= ~TIM_CR1_CEN;   /// Disable TIM4
 
     //---- Send to SPI ----///
-    Counter++;
-    if(Counter==25)
+    if (flag_spi == 1) Counter++;               // !!!!! New Change
+    if(Counter >= 4)
     {
       Counter = 0;
+      flag_spi = 0;                             // !!!!! New Change
       for (uint16_t cnt = 0; cnt < CCD; cnt++)
         Buf_SPI[cnt] = Buf_ADC[cnt];
-      ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD);
+      // ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change
     }
     //---- END Send to SPI ----///
     

@@ -18,6 +18,17 @@
 
 #include "ccd_spi_hw.h"
 
+#include "led_hw.h"
+
+volatile uint16_t Buf_SPI[CCD] = {0};
+
+uint16_t spi_slave_rx_buffer[6];
+uint16_t spi_slave_tx_buffer[6];
+
+
+#define CMD_LED_ON  0x0A01
+#define CMD_LED_OFF 0x0A02
+#define CMD_TRANSFER_DATA 0x0103
 
 //------------------------------------------------------------------------------
 
@@ -25,6 +36,7 @@ static void ccd_spi_pins_init(void);
 static void ccd_spi_port_init(void);
 static void ccd_spi_dma_init(void);
 
+uint8_t flag_spi = 1;
 
 void ccd_set_SPI_addr (void);
 void ccd_set_SPI_buf_len (uint32_t data_len);
@@ -74,11 +86,10 @@ static void ccd_spi_port_init(void)
   //--- SPI 3 INIT ---//
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_SPI3);
   
-
   //--- SPI3  configuration ---//
   LL_SPI_InitTypeDef SPI_InitStruct = {0};
   SPI_InitStruct.TransferDirection = LL_SPI_FULL_DUPLEX;
-  SPI_InitStruct.Mode = LL_SPI_MODE_MASTER;
+  SPI_InitStruct.Mode = LL_SPI_MODE_SLAVE;                      //LL_SPI_MODE_MASTER; !!!! Change
   SPI_InitStruct.DataWidth = LL_SPI_DATAWIDTH_16BIT;            // Data - 16 bit
   SPI_InitStruct.ClockPolarity = LL_SPI_POLARITY_LOW;
   SPI_InitStruct.ClockPhase = LL_SPI_PHASE_1EDGE;
@@ -89,7 +100,14 @@ static void ccd_spi_port_init(void)
   SPI_InitStruct.CRCPoly = 7;
   LL_SPI_Init(SPI3, &SPI_InitStruct);
   LL_SPI_SetStandard(SPI3, LL_SPI_PROTOCOL_MOTOROLA);           // CR2, SPI_CR2_FRF
-  LL_SPI_EnableNSSPulseMgt(SPI3);                               // CR2, SPI_CR2_NSSP
+  // ???? LL_SPI_EnableNSSPulseMgt(SPI3);                               // CR2, SPI_CR2_NSSP !!!! Change
+  
+  //--- SPI Interrupts ---///
+  LL_SPI_SetRxFIFOThreshold(SPI3, LL_SPI_RX_FIFO_TH_HALF);              // !!! New Change
+  LL_SPI_EnableIT_RXNE(SPI3);                                           // !!! New Change
+  NVIC_SetPriority(SPI3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0)); 
+  NVIC_EnableIRQ(SPI3_IRQn);
+  //LL_SPI_DisableIT_RXNE(SPI3);
   
   //--- DMA TX Enable ---//
   LL_SPI_EnableDMAReq_TX(SPI3);
@@ -173,8 +191,28 @@ void ccd_send_SPI_buf (uint32_t * addr, uint32_t data_len)
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
+/// Change
+// INTERRUPT
 
-
+void SPI3_IRQHandler(void) {
+    if (LL_SPI_IsActiveFlag_RXNE(SPI3)) {
+        uint16_t command = LL_SPI_ReceiveData16(SPI3);
+        switch (command) {
+            case CMD_LED_ON:
+                led_green_on();
+                break;
+            case CMD_LED_OFF:
+                led_green_off();
+                break;
+            case CMD_TRANSFER_DATA:
+                flag_spi = 1;
+                ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change 
+                break;
+        }
+        //spi_slave_tx_buffer[0] = 0xAA55; // Response
+        //LL_SPI_TransmitData16(SPI3, spi_slave_tx_buffer[0]);
+    }
+}
 
 
 
