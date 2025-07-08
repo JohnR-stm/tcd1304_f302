@@ -21,7 +21,7 @@
 
 //------------------------------------------------------------------------------
 
-
+#define         OFFSET_VALUE            ((uint32_t)1000)
 
 
 volatile uint16_t Buf_ADC[CCD] = {0};
@@ -52,6 +52,8 @@ void ccd_adc_mdl_init(void)
   
   LL_ADC_REG_StartConversion(ADC1);
   LL_ADC_Enable(ADC1);
+  /// N E W ///////////////////////////
+ // while (!LL_ADC_IsActiveFlag_ADRDY(ADC1));
 } 
 
 
@@ -117,9 +119,10 @@ static void ccd_tim_adc_init(void)
 static void ccd_adc_init(void)
 {
   //--- PA0 -- ADC_Input --- ADC1_IN1---//
+  //--- PA1 -- ADC_Input --- ADC1_IN2---//
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
   LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_0;
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_0 | LL_GPIO_PIN_1;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -174,13 +177,30 @@ static void ccd_adc_init(void)
   {
     wait_loop_index--;
   }
+  
+  /// N E W ////////////////////////////////////////////////////////////////
+  LL_ADC_SetOffset(ADC1, LL_ADC_OFFSET_1, LL_ADC_CHANNEL_1, OFFSET_VALUE);
+
 
   //--- Configure Regular Channel ---//
   LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_1, LL_ADC_CHANNEL_1);
   LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_1, LL_ADC_SAMPLINGTIME_1CYCLE_5);
   LL_ADC_SetChannelSingleDiff(ADC1, LL_ADC_CHANNEL_1, LL_ADC_SINGLE_ENDED);
+  /// N E W ////////////////////////////////////////////////////////////////
+  //LL_ADC_SetChannelSingleDiff(ADC1, LL_ADC_CHANNEL_1, LL_ADC_DIFFERENTIAL_ENDED);
     //sConfig.OffsetNumber = ADC_OFFSET_NONE;
     //sConfig.Offset = 0;
+  
+  /// N E W ////////////////////////////////////////////////////////////////
+/*
+  LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_2, LL_ADC_CHANNEL_2);
+  LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_2, LL_ADC_SAMPLINGTIME_1CYCLE_5);
+  LL_ADC_SetChannelSingleDiff(ADC1, LL_ADC_CHANNEL_2, LL_ADC_DIFFERENTIAL_ENDED);
+*/
+  
+  /// N E W //////////////////////////////////////////////
+  LL_ADC_StartCalibration(ADC1, LL_ADC_SINGLE_ENDED); // LL_ADC_BOTH_SINGLE_DIFF_ENDED
+  while (LL_ADC_IsCalibrationOnGoing(ADC1));
 }
   
   
