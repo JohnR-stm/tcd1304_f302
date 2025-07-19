@@ -21,7 +21,7 @@
 
 //------------------------------------------------------------------------------
 
-#define         OFFSET_VALUE            ((uint32_t)1000)
+#define         OFFSET_VALUE            ((uint32_t)0)
 
 
 volatile uint16_t Buf_ADC[CCD] = {0};
@@ -249,7 +249,7 @@ void DMA1_Channel1_IRQHandler(void)
 
     //---- Send to SPI ----///
     if (flag_spi == 1) Counter++;               // !!!!! New Change
-    if(Counter >= 4)
+    if(Counter == 3)
     {
       Counter = 0;
       flag_spi = 0;                             // !!!!! New Change

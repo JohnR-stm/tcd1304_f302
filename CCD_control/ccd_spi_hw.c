@@ -20,15 +20,18 @@
 
 #include "led_hw.h"
 
-volatile uint16_t Buf_SPI[CCD] = {0};
-
-uint16_t spi_slave_rx_buffer[6];
-uint16_t spi_slave_tx_buffer[6];
-
-
 #define CMD_LED_ON  0x0A01
 #define CMD_LED_OFF 0x0A02
 #define CMD_TRANSFER_DATA 0x0103
+
+//------------------------------------------------------------------------------
+
+volatile uint16_t Buf_SPI[CCD] = {0};
+
+uint16_t spi_rx_buf[Buf_SZ];
+uint16_t spi_tx_buf[Buf_SZ];
+
+uint8_t flag_spi = 1;
 
 //------------------------------------------------------------------------------
 
@@ -36,7 +39,7 @@ static void ccd_spi_pins_init(void);
 static void ccd_spi_port_init(void);
 static void ccd_spi_dma_init(void);
 
-uint8_t flag_spi = 1;
+
 
 void ccd_set_SPI_addr (void);
 void ccd_set_SPI_buf_len (uint32_t data_len);
@@ -48,6 +51,9 @@ void ccd_set_SPI_buf_addr (uint32_t * addr);
 
 void ccd_spi_init(void)
 {
+  for (uint16_t cnt = 0; cnt < CCD; cnt++)
+        Buf_SPI[cnt] = cnt;
+  
   ccd_spi_pins_init();
   ccd_spi_port_init();
   ccd_spi_dma_init();
