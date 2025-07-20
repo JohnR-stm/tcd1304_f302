@@ -109,7 +109,7 @@ static void ccd_spi_port_init(void)
   // ???? LL_SPI_EnableNSSPulseMgt(SPI3);                               // CR2, SPI_CR2_NSSP !!!! Change
   
   //--- SPI Interrupts ---///
-  LL_SPI_SetRxFIFOThreshold(SPI3, LL_SPI_RX_FIFO_TH_HALF);              // !!! New Change
+  //LL_SPI_SetRxFIFOThreshold(SPI3, LL_SPI_RX_FIFO_TH_HALF);              // !!! New Change
   LL_SPI_EnableIT_RXNE(SPI3);                                           // !!! New Change
   NVIC_SetPriority(SPI3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0)); 
   NVIC_EnableIRQ(SPI3_IRQn);
@@ -144,6 +144,11 @@ static void ccd_spi_dma_init(void)
   LL_DMA_SetPeriphSize(DMA2, LL_DMA_CHANNEL_2, LL_DMA_PDATAALIGN_HALFWORD);
   LL_DMA_SetMemorySize(DMA2, LL_DMA_CHANNEL_2, LL_DMA_MDATAALIGN_HALFWORD);
 
+    /* DMA interrupt init */
+  // DMA1_Channel1_IRQn interrupt configuration -- FOR ADC
+  NVIC_SetPriority(DMA2_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
+  NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+  DMA2_Channel2->CCR |= DMA_CCR_TCIE;
 
   
   //DMA1_Channel1->CCR = 0;
@@ -198,11 +203,12 @@ void ccd_send_SPI_buf (uint32_t * addr, uint32_t data_len)
 //
 //------------------------------------------------------------------------------
 /// Change
-// INTERRUPT
+// INTERRUPTS
 
 void SPI3_IRQHandler(void) {
     if (LL_SPI_IsActiveFlag_RXNE(SPI3)) {
         uint16_t command = LL_SPI_ReceiveData16(SPI3);
+        // LED BLINK
         switch (command) {
             case CMD_LED_ON:
                 led_green_on();
@@ -211,7 +217,10 @@ void SPI3_IRQHandler(void) {
                 led_green_off();
                 break;
             case CMD_TRANSFER_DATA:
-                flag_spi = 1;
+                //off SPI FULL DUPLEX, 
+                // off SPI Interrupts
+                LL_SPI_DisableIT_RXNE(SPI3);
+                //flag_spi = 1;
                 ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change 
                 break;
         }
@@ -226,7 +235,36 @@ void SPI3_IRQHandler(void) {
 //
 //------------------------------------------------------------------------------
 
+//===== D M A 2   H A N D L E R ================================================
 
+void DMA2_Channel2_IRQHandler(void)
+{
+  if(LL_DMA_IsActiveFlag_TC2(DMA2))
+  {
+    LL_DMA_ClearFlag_TC2(DMA2);  /// Transfer complete flag
+    LL_DMA_ClearFlag_HT2(DMA2);  /// half transfer complete flag
+    LL_DMA_ClearFlag_GI2(DMA2);  /// Clear global interrupt flag
+    
+    LL_SPI_EnableIT_RXNE(SPI3);   /// Enable SPI Interrupts
+
+ 
+    //---- END Send to SPI ----///
+    
+  }
+  else
+  {
+    LL_DMA_ClearFlag_TC2(DMA2);  /// Transfer complete flag
+    LL_DMA_ClearFlag_HT2(DMA2);  /// half transfer complete flag
+    LL_DMA_ClearFlag_GI2(DMA2);  /// Clear global interrupt flag
+    LL_DMA_ClearFlag_TE2(DMA2);
+  }
+  /*
+  else if(LL_DMA_IsActiveFlag_TE3(DMA1))     /// if transfer error (TE) flag for channel 7 P.308 RM
+  {
+    LL_DMA_ClearFlag_TE3(DMA1);  /// Transfer error flag
+    LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
+  } */
+}
 
 
 

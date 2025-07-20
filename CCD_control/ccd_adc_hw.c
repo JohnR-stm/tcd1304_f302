@@ -19,6 +19,8 @@
 #include "ccd_spi_hw.h"
 #include "ccd_adc_hw.h"
 
+#include "led_hw.h"
+
 //------------------------------------------------------------------------------
 
 #define         OFFSET_VALUE            ((uint32_t)0)
@@ -67,9 +69,9 @@ static void ccd_tim_adc_init(void)
 
   //--- Base Init TIM ---//
   LL_TIM_InitTypeDef TIM_InitStruct = {0};
-  TIM_InitStruct.Prescaler = 3;                        //PSC ------------------
+  TIM_InitStruct.Prescaler = 3;                        //PSC ------------------3
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 47;                      //ARR ------------------
+  TIM_InitStruct.Autoreload = 36-1;                      //ARR ------------------48-1
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM4, &TIM_InitStruct);
   LL_TIM_DisableARRPreload(TIM4);
@@ -81,7 +83,7 @@ static void ccd_tim_adc_init(void)
   TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
   TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
   TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
-  TIM_OC_InitStruct.CompareValue = 23;                  //Pulse ---------------
+  TIM_OC_InitStruct.CompareValue = 18-1;                  //Pulse ---------------24-1
   TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
   LL_TIM_OC_Init(TIM4, LL_TIM_CHANNEL_CH1, &TIM_OC_InitStruct);
   LL_TIM_OC_DisableFast(TIM4, LL_TIM_CHANNEL_CH1);
@@ -248,14 +250,17 @@ void DMA1_Channel1_IRQHandler(void)
     TIM4->CR1 &= ~TIM_CR1_CEN;   /// Disable TIM4
 
     //---- Send to SPI ----///
-    if (flag_spi == 1) Counter++;               // !!!!! New Change
+    //if (flag_spi == 1) Counter++;               // !!!!! New Change
+    Counter++; 
     if(Counter == 3)
     {
+      led_green_on();
       Counter = 0;
       flag_spi = 0;                             // !!!!! New Change
       for (uint16_t cnt = 0; cnt < CCD; cnt++)
         Buf_SPI[cnt] = Buf_ADC[cnt];
       // ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change
+      led_green_off();
     }
     //---- END Send to SPI ----///
     

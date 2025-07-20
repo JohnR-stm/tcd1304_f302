@@ -6,14 +6,16 @@
 ///
 ///  ICG --- TIM1(CH1) - PA8. TIM1 - OnePulseMode. TIM1 - Master for TIM2 & TIM3
 ///    
-///  SH --- TIM2(CH1) - PA5. TIM2 - OPM. Master for TIM4 (ITR1) ??? 
+///  SH  --- TIM2(CH1) - PA5. TIM2 - OPM. Master for TIM4 (ITR1) ??? 
 ///  
 ///  CLK --- TIM3(CH4) - PB1. TIM3 - ResetMode ITR0. Master for  ???
+///  
+///  ADC --- TIM4     - PA11
 ///
 /// ------------------- P I N S ------------------------------------------------
-///                             |       |       S P I 
-///    Sync   ICG    SH    CLK  |  ADC  |    
-///    PA6    PA8    PA5   PB1  |  PA0  |    
+///                             |       |             S P I 
+///    Sync   ICG    SH    CLK  |  ADC  |   MOSI   MISO   SCK    CS 
+///    PA6    PA8    PA5   PB1  |  PA0  |   PB5    PB4    PB3   PA15
 ///                             |       |     
 ///------------------------------------------------------------------------------
 
@@ -297,7 +299,7 @@ static void ccd_CLK_init(void)
   LL_TIM_InitTypeDef TIM_InitStruct = {0};
   TIM_InitStruct.Prescaler = 3;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 11;
+  TIM_InitStruct.Autoreload = 9-1;     ////----------------------------------- 12-1
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM3, &TIM_InitStruct);
   LL_TIM_DisableARRPreload(TIM3);
@@ -309,7 +311,7 @@ static void ccd_CLK_init(void)
   TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
   TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
   TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
-  TIM_OC_InitStruct.CompareValue = 6;
+  TIM_OC_InitStruct.CompareValue = 5-1;   ////-------------------------------- 7-1
   TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_LOW;
   LL_TIM_OC_Init(TIM3, LL_TIM_CHANNEL_CH4, &TIM_OC_InitStruct);
   LL_TIM_OC_EnableFast(TIM3, LL_TIM_CHANNEL_CH4);
