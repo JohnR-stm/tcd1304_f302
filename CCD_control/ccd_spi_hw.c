@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+#include "config.h"
+
 #include "stm32f3xx_ll_bus.h"
 #include "stm32f3xx_ll_gpio.h"
 #include "stm32f3xx_ll_dma.h"
@@ -23,6 +25,8 @@
 #define CMD_LED_ON  0x0A01
 #define CMD_LED_OFF 0x0A02
 #define CMD_TRANSFER_DATA 0x0103
+#define CMD_STOP_SUM ((uint16_t)(0x0201))
+#define CMD_START_SUM ((uint16_t)(0x0202))
 
 //------------------------------------------------------------------------------
 
@@ -31,12 +35,17 @@ volatile uint16_t Buf_SPI[CCD] = {0};
 uint16_t spi_rx_buf[Buf_SZ];
 uint16_t spi_tx_buf[Buf_SZ];
 
+uint16_t spi_temp_val = 0;
+
 uint8_t flag_spi = 1;
+uint8_t counter = 1;
+uint8_t flag_summ = 0;
 
 //------------------------------------------------------------------------------
 
 static void ccd_spi_pins_init(void);
 static void ccd_spi_port_init(void);
+static void ccd_spi_interr_init(void);
 static void ccd_spi_dma_init(void);
 
 
@@ -56,6 +65,7 @@ void ccd_spi_init(void)
   
   ccd_spi_pins_init();
   ccd_spi_port_init();
+  ccd_spi_interr_init();
   ccd_spi_dma_init();
   
 }
@@ -94,7 +104,7 @@ static void ccd_spi_port_init(void)
   
   //--- SPI3  configuration ---//
   LL_SPI_InitTypeDef SPI_InitStruct = {0};
-  SPI_InitStruct.TransferDirection = LL_SPI_FULL_DUPLEX;
+  SPI_InitStruct.TransferDirection = LL_SPI_FULL_DUPLEX; // change   LL_SPI_FULL_DUPLEX;
   SPI_InitStruct.Mode = LL_SPI_MODE_SLAVE;                      //LL_SPI_MODE_MASTER; !!!! Change
   SPI_InitStruct.DataWidth = LL_SPI_DATAWIDTH_16BIT;            // Data - 16 bit
   SPI_InitStruct.ClockPolarity = LL_SPI_POLARITY_LOW;
@@ -108,18 +118,72 @@ static void ccd_spi_port_init(void)
   LL_SPI_SetStandard(SPI3, LL_SPI_PROTOCOL_MOTOROLA);           // CR2, SPI_CR2_FRF
   // ???? LL_SPI_EnableNSSPulseMgt(SPI3);                               // CR2, SPI_CR2_NSSP !!!! Change
   
-  //--- SPI Interrupts ---///
-  //LL_SPI_SetRxFIFOThreshold(SPI3, LL_SPI_RX_FIFO_TH_HALF);              // !!! New Change
+  LL_SPI_SetRxFIFOThreshold(SPI3, LL_SPI_RX_FIFO_TH_HALF);              // !!! New Change
+  
+#ifdef cnf_SPI_NSS_SOFT
+  spi_nss_soft(1);
+#endif /* cnf_SPI_NSS_SOFT */
+ 
+  //--- SPI 3 Enable ---//
+  LL_SPI_Enable(SPI3);
+}
+
+//------------------------------------------------------------------------------
+
+static void ccd_spi_interr_init(void)
+{
+    //--- SPI Interrupts ---///
+  
   LL_SPI_EnableIT_RXNE(SPI3);                                           // !!! New Change
-  NVIC_SetPriority(SPI3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0)); 
+  LL_SPI_DisableIT_ERR(SPI3);
+  NVIC_SetPriority(SPI3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),1, 0)); // 4 old
   NVIC_EnableIRQ(SPI3_IRQn);
   //LL_SPI_DisableIT_RXNE(SPI3);
   
   //--- DMA TX Enable ---//
   LL_SPI_EnableDMAReq_TX(SPI3);
-  //--- SPI 3 Enable ---//
-  LL_SPI_Enable(SPI3);
 }
+//------------------------------------------------------------------------------
+
+void ccd_spi_clear_err(void)
+{
+  if (LL_SPI_IsActiveFlag_MODF(SPI3) == 1UL)
+    LL_SPI_ClearFlag_MODF(SPI3);
+  if (LL_SPI_IsActiveFlag_OVR(SPI3) == 1UL)
+    LL_SPI_ClearFlag_OVR(SPI3);
+  if (LL_SPI_IsActiveFlag_FRE(SPI3) == 1UL)
+    LL_SPI_ClearFlag_FRE(SPI3); 
+}
+
+//------------------------------------------------------------------------------
+
+void ccd_spi_enable_interrupts(void)
+{
+  LL_DMA_DisableChannel(DMA2, LL_DMA_CHANNEL_2);
+  LL_SPI_Disable(SPI3);
+  while (LL_SPI_IsEnabled(SPI3) == 1UL) {};
+  LL_SPI_Enable(SPI3);
+  while (LL_SPI_IsEnabled(SPI3) == 0UL) {};
+  ccd_spi_clear_err();
+  LL_SPI_EnableIT_RXNE(SPI3);   /// Enable SPI Interrupts
+}
+
+
+//------------------------------------------------------------------------------
+
+void spi_nss_soft(uint8_t cond)
+{
+  if(cond == 0)
+  {
+    SET_BIT(SPI3->CR1, SPI_CR1_SSI); /// OFF
+  }
+  else
+  {
+    CLEAR_BIT(SPI3->CR1, SPI_CR1_SSI); /// ON
+  }
+}
+
+//------------------------------------------------------------------------------
 
 
 //------------------------------------------------------------------------------
@@ -146,9 +210,11 @@ static void ccd_spi_dma_init(void)
 
     /* DMA interrupt init */
   // DMA1_Channel1_IRQn interrupt configuration -- FOR ADC
-  NVIC_SetPriority(DMA2_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
+  NVIC_SetPriority(DMA2_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0)); /// 3 old
   NVIC_EnableIRQ(DMA2_Channel2_IRQn);
   DMA2_Channel2->CCR |= DMA_CCR_TCIE;
+  
+  LL_DMA_DisableChannel(DMA2, LL_DMA_CHANNEL_2);
 
   
   //DMA1_Channel1->CCR = 0;
@@ -188,6 +254,8 @@ inline void ccd_set_SPI_buf_addr (uint32_t * addr)
 
 void ccd_send_SPI_buf (uint32_t * addr, uint32_t data_len)
 {
+  // add off SPI, clear flags SPI
+  //LL_SPI_Disable(SPI3);
   LL_DMA_DisableChannel(DMA2, LL_DMA_CHANNEL_2);
   
   ccd_set_SPI_addr ();
@@ -195,6 +263,8 @@ void ccd_send_SPI_buf (uint32_t * addr, uint32_t data_len)
   ccd_set_SPI_buf_addr (addr);
   
   LL_DMA_EnableChannel(DMA2, LL_DMA_CHANNEL_2);
+  ///LL_SPI_Enable(SPI3);
+  // add on SPI
 }
 
 
@@ -206,27 +276,89 @@ void ccd_send_SPI_buf (uint32_t * addr, uint32_t data_len)
 // INTERRUPTS
 
 void SPI3_IRQHandler(void) {
-    if (LL_SPI_IsActiveFlag_RXNE(SPI3)) {
-        uint16_t command = LL_SPI_ReceiveData16(SPI3);
-        // LED BLINK
+  led_green_on();
+  
+  ccd_spi_clear_err();
+  
+    if (LL_SPI_IsActiveFlag_RXNE(SPI3)) { 
+
+      while (LL_SPI_IsActiveFlag_BSY(SPI3)) 
+      {
+        LL_SPI_ClearFlag_OVR(SPI3);
+        for(uint16_t f = 0; f<600; f++) { __NOP();};
+        ccd_spi_clear_err();
+        LL_SPI_Disable(SPI3);
+          while (LL_SPI_IsEnabled(SPI3) == 1UL) {};
+        LL_SPI_Enable(SPI3);
+          while (LL_SPI_IsEnabled(SPI3) == 0UL) {};
+        break; 
+      }        /// !!! NEW ADD BYSY
+     
+      uint16_t command = LL_SPI_ReceiveData16(SPI3);
+
         switch (command) {
             case CMD_LED_ON:
-                led_green_on();
+                //led_green_on();
                 break;
             case CMD_LED_OFF:
-                led_green_off();
+                //led_green_off();
+                break;
+            case CMD_START_SUM:
+                flag_summ = 1;
+                break;
+            case CMD_STOP_SUM:
+                flag_summ = 0;
                 break;
             case CMD_TRANSFER_DATA:
-                //off SPI FULL DUPLEX, 
+                //led_green_on();
+                // !!!!! ADD off SPI FULL DUPLEX, 
+                //LL_SPI_SetTransferDirection(SPI3, LL_SPI_FULL_DUPLEX);
                 // off SPI Interrupts
+              if(flag_spi == 1)
+              {
                 LL_SPI_DisableIT_RXNE(SPI3);
-                //flag_spi = 1;
                 ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change 
+                flag_spi = 0;
                 break;
-        }
+              }
+            default:
+              spi_temp_val = command;
+              LL_SPI_DisableIT_RXNE(SPI3);
+              LL_SPI_Disable(SPI3);
+              //LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_SPI3);
+              
+              //LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_SPI3);
+              //LL_APB1_GRP1_ForceReset(LL_APB1_GRP1_PERIPH_SPI3);
+              //LL_APB1_GRP1_ReleaseReset(LL_APB1_GRP1_PERIPH_SPI3);
+#ifdef  cnf_SPI_NSS_SOFT 
+              spi_nss_soft(0); // OFF NSS
+#endif /* cnf_SPI_NSS_SOFT */
+              
+              for(uint8_t f = 0; f<220; f++) { __NOP();};
+              
+              //LL_SPI_Enable(SPI3);
+              //while (LL_SPI_DeInit(SPI3) == ERROR) {}; /// DE Init SPI3
+              //ccd_spi_port_init(); //// DO NOT WORK AFTER IT
+              LL_SPI_TransmitData16(SPI3, spi_temp_val);
+              // deinit dma
+              //deinit spi
+              //on spi
+           }
         //spi_slave_tx_buffer[0] = 0xAA55; // Response
         //LL_SPI_TransmitData16(SPI3, spi_slave_tx_buffer[0]);
     }
+    //NEW
+    
+    
+    // ADD
+    /*if (LL_SPI_IsActiveFlag_OVR(SPI3)) 
+    {
+      (void)SPI3->DR; // ?????? DR ? SR — ?????????? OVR
+      (void)SPI3->SR;
+    }*/
+    
+    
+    led_green_off();
 }
 
 
@@ -244,9 +376,26 @@ void DMA2_Channel2_IRQHandler(void)
     LL_DMA_ClearFlag_TC2(DMA2);  /// Transfer complete flag
     LL_DMA_ClearFlag_HT2(DMA2);  /// half transfer complete flag
     LL_DMA_ClearFlag_GI2(DMA2);  /// Clear global interrupt flag
-    
-    LL_SPI_EnableIT_RXNE(SPI3);   /// Enable SPI Interrupts
 
+    LL_DMA_DisableChannel(DMA2, LL_DMA_CHANNEL_2);
+    
+    ccd_spi_enable_interrupts();   /// Enable SPI Interrupts
+
+    // ADD
+   /* if (LL_SPI_IsActiveFlag_OVR(SPI3)) 
+    {
+      (void)SPI3->DR;
+      (void)SPI3->SR;
+    } */
+    
+    
+    
+    //ADD
+    //LL_SPI_SetTransferDirection(SPI3, LL_SPI_SIMPLEX_RX);
+    
+    //counter = 0;
+    // ADD
+    
  
     //---- END Send to SPI ----///
     

@@ -8,6 +8,8 @@
 ///
 ///------------------------------------------------------------------------------
 
+#include "config.h"
+
 #ifdef STM32F3
 #include "stm32f3xx_ll_bus.h"
 #include "stm32f3xx_ll_gpio.h"
@@ -28,11 +30,16 @@
 
 volatile uint16_t Buf_ADC[CCD] = {0};
 
+uint16_t Buf_SUMM[CCD] = {0};
+
 
 volatile uint8_t Counter = 0;
 extern uint8_t flag_spi;
 
 extern uint16_t Buf_SPI[CCD];
+
+extern uint8_t counter;
+extern uint8_t flag_summ;
 
 //------------------------------------------------------------------------------
 
@@ -216,7 +223,7 @@ static void ccd_dma_adc_init(void)
 
   /* DMA interrupt init */
   // DMA1_Channel1_IRQn interrupt configuration -- FOR ADC
-  NVIC_SetPriority(DMA1_Channel1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+  NVIC_SetPriority(DMA1_Channel1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0));  // 1- old
   NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   
   //DMA2_Channel2_IRQn interrupt configuration  -- FOR SPI 
@@ -251,6 +258,53 @@ void DMA1_Channel1_IRQHandler(void)
 
     //---- Send to SPI ----///
     //if (flag_spi == 1) Counter++;               // !!!!! New Change
+    
+    /// NEW COUNTER SUMM 10 times
+    if(flag_summ == 1)
+    {
+      //led_green_on();
+      
+      if(counter < 16)
+        for (uint16_t cnt = 0; cnt < CCD; cnt++)
+          Buf_SUMM[cnt] += Buf_ADC[cnt];
+      
+      else if(counter == 16)
+      {
+        for (uint16_t cnt = 0; cnt < CCD; cnt++)
+        {
+          Buf_SPI[cnt] = Buf_SUMM[cnt] + Buf_ADC[cnt]; /// last measurement
+          Buf_SUMM[cnt] = 0;
+        }
+        //ccd_spi_enable_interrupts();
+        flag_spi = 1;
+        counter = 0;
+      }
+      ccd_spi_enable_interrupts();
+#ifdef cnf_SPI_NSS_SOFT
+      spi_nss_soft(1);
+#endif /* cnf_SPI_NSS_SOFT */
+      counter++; /// counter=1 -- first, counter=10 -- last 
+      //led_green_off(); 
+    }
+    
+    /// if no summ
+    else 
+    {
+      
+      ccd_spi_enable_interrupts();
+      //led_green_on();
+      for (uint16_t cnt1 = 0; cnt1 < CCD; cnt1++)
+        Buf_SPI[cnt1] = Buf_ADC[cnt1];
+#ifdef cnf_SPI_NSS_SOFT
+      spi_nss_soft(1);
+#endif /* cnf_SPI_NSS_SOFT */
+      flag_spi = 1;                             // !!!!! New Change
+     // led_green_off();     
+    }
+    
+    ccd_spi_clear_err();
+      
+    /* OLD
     Counter++; 
     if(Counter == 3)
     {
@@ -262,6 +316,7 @@ void DMA1_Channel1_IRQHandler(void)
       // ccd_send_SPI_buf ((uint32_t *)((void *)&Buf_SPI[0]), CCD); // !!!!! New Change
       led_green_off();
     }
+    */
     //---- END Send to SPI ----///
     
   }
