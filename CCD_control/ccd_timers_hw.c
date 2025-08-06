@@ -346,6 +346,65 @@ static void ccd_CLK_init(void)
 //------------------------------------------------------------------------------
 
 
+void ccd_tim_icg(uint16_t *buf, uint16_t size)
+{
+  if (size < 1) return;
+  
+  uint16_t cmd = buf[0];
+  uint32_t val = ((uint32_t) buf[1]) & 0x0000FFFF;
+  
+  switch (cmd)
+  {
+  case 1:
+    LL_TIM_OC_SetCompareCH1(TIM1, val); // ICG_SYG (4)
+    break;
+  case 2:
+    LL_TIM_SetAutoReload(TIM1, val); // init val = 198
+    break;
+  default:
+    break;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void ccd_tim_sh(uint16_t *buf, uint16_t size)
+{
+  if (size < 1) return;
+  
+  uint16_t cmd = buf[0];
+  uint32_t val = ((uint32_t) buf[1]) & 0x0000FFFF;
+  
+  switch (cmd)
+  {
+  case 1:
+    LL_TIM_OC_SetCompareCH1(TIM2, val); // SH_SYG (6)
+    break;
+  case 2:
+    LL_TIM_OC_SetCompareCH2(TIM2, val); // Master for TIM4 (ADC) (107)
+    break;
+  case 3:
+    LL_TIM_SetAutoReload(TIM2, val); // init val = 110
+    break;
+  default:
+    break;
+  }
+}
+
+
+
+
+
+//------------------------------------------------------------------------------
+
+
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+
+
 
 
 

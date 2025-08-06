@@ -21,6 +21,7 @@
 #include "ccd_spi_hw.h"
 
 #include "led_hw.h"
+#include "ccd_cmd_proc.h"
 
 #define CMD_LED_ON  0x0A01
 #define CMD_LED_OFF 0x0A02
@@ -295,8 +296,10 @@ void SPI3_IRQHandler(void) {
       }        /// !!! NEW ADD BYSY
      
       uint16_t command = LL_SPI_ReceiveData16(SPI3);
+      uint8_t state = 0;
 
-        switch (command) {
+        switch (command) 
+        {
             case CMD_LED_ON:
                 //led_green_on();
                 break;
@@ -321,25 +324,45 @@ void SPI3_IRQHandler(void) {
                 flag_spi = 0;
                 break;
               }
+              
             default:
-              spi_temp_val = command;
-              LL_SPI_DisableIT_RXNE(SPI3);
-              LL_SPI_Disable(SPI3);
+              state = cmd_buf_create(command);
+              if (state == 0) // OFF SPI
+              {
+                LL_SPI_DisableIT_RXNE(SPI3);
+                LL_SPI_Disable(SPI3);
+                #ifdef  cnf_SPI_NSS_SOFT 
+                spi_nss_soft(0); // OFF NSS
+                #endif /* cnf_SPI_NSS_SOFT */
+                cmd_reset_buf();
+              }
+              else if (state == 3)
+              {
+                state = cmd_buf_processing(); // start buf processing
+                if (state == 0)
+                {
+                  LL_SPI_DisableIT_RXNE(SPI3);
+                  LL_SPI_Disable(SPI3);
+                  #ifdef  cnf_SPI_NSS_SOFT 
+                  spi_nss_soft(0); // OFF NSS
+                  #endif /* cnf_SPI_NSS_SOFT */
+                  cmd_reset_buf();
+                }
+              }
+ 
               //LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_SPI3);
               
               //LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_SPI3);
               //LL_APB1_GRP1_ForceReset(LL_APB1_GRP1_PERIPH_SPI3);
               //LL_APB1_GRP1_ReleaseReset(LL_APB1_GRP1_PERIPH_SPI3);
-#ifdef  cnf_SPI_NSS_SOFT 
-              spi_nss_soft(0); // OFF NSS
-#endif /* cnf_SPI_NSS_SOFT */
+
               
               for(uint8_t f = 0; f<220; f++) { __NOP();};
               
               //LL_SPI_Enable(SPI3);
               //while (LL_SPI_DeInit(SPI3) == ERROR) {}; /// DE Init SPI3
               //ccd_spi_port_init(); //// DO NOT WORK AFTER IT
-              LL_SPI_TransmitData16(SPI3, spi_temp_val);
+         ///LL_SPI_TransmitData16(SPI3, spi_temp_val);
               // deinit dma
               //deinit spi
               //on spi
