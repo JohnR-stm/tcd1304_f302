@@ -25,6 +25,8 @@
 #include "stm32f3xx_ll_tim.h"
 #endif
 
+#include "config.h"
+
 #include "ccd_timers_hw.h"
 
 //------------------------------------------------------------------------------
@@ -63,6 +65,7 @@ void ccd_timers_start(void)
 
 static void ccd_Sync_init(void)
 {
+  #ifdef TIM_SYNC
   //--- TIM 16 INIT ---//
   
   //--- Peripheral clock enable ---//
@@ -123,6 +126,8 @@ static void ccd_Sync_init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   
   SET_BIT(TIM16->EGR, TIM_EGR_UG);
+  
+  #endif /* TIM_SYNC */
 }
 
 //------------------------------------------------------------------------------
@@ -147,7 +152,7 @@ static void ccd_ICG_init(void)
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   TIM_InitStruct.RepetitionCounter = 0;
   LL_TIM_Init(TIM1, &TIM_InitStruct);
-  LL_TIM_DisableARRPreload(TIM1);
+  LL_TIM_EnableARRPreload(TIM1);
   LL_TIM_SetClockSource(TIM1, LL_TIM_CLOCKSOURCE_INTERNAL);
     
   //--- PWM OC (CH1) -- ICG sygnal ---//
@@ -237,7 +242,7 @@ static void ccd_SH_init(void)
   TIM_InitStruct.Autoreload = 110;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM2, &TIM_InitStruct);
-  LL_TIM_DisableARRPreload(TIM2);
+  LL_TIM_EnableARRPreload(TIM2);
   LL_TIM_SetClockSource(TIM2, LL_TIM_CLOCKSOURCE_INTERNAL);
   
   //--- PWM OC (CH1) -- SH sygnal ---//
@@ -302,7 +307,8 @@ static void ccd_CLK_init(void)
   TIM_InitStruct.Autoreload = 9-1;     ////----------------------------------- 12-1
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM3, &TIM_InitStruct);
-  LL_TIM_DisableARRPreload(TIM3);
+  LL_TIM_EnableARRPreload(TIM3);
+  
   LL_TIM_SetClockSource(TIM3, LL_TIM_CLOCKSOURCE_INTERNAL);
   
   //--- PWM OC (CH4) -- CLK ---//
@@ -357,9 +363,11 @@ void ccd_tim_icg(uint16_t *buf, uint16_t size)
   {
   case 1:
     LL_TIM_OC_SetCompareCH1(TIM1, val); // ICG_SYG (4)
+    LL_TIM_GenerateEvent_UPDATE(TIM1);
     break;
   case 2:
     LL_TIM_SetAutoReload(TIM1, val); // init val = 198
+    LL_TIM_GenerateEvent_UPDATE(TIM1);
     break;
   default:
     break;
@@ -379,12 +387,15 @@ void ccd_tim_sh(uint16_t *buf, uint16_t size)
   {
   case 1:
     LL_TIM_OC_SetCompareCH1(TIM2, val); // SH_SYG (6)
+    LL_TIM_GenerateEvent_UPDATE(TIM2);
     break;
   case 2:
     LL_TIM_OC_SetCompareCH2(TIM2, val); // Master for TIM4 (ADC) (107)
+    LL_TIM_GenerateEvent_UPDATE(TIM2);
     break;
   case 3:
     LL_TIM_SetAutoReload(TIM2, val); // init val = 110
+    LL_TIM_GenerateEvent_UPDATE(TIM2);
     break;
   default:
     break;

@@ -23,11 +23,11 @@
 #include "led_hw.h"
 #include "ccd_cmd_proc.h"
 
-#define CMD_LED_ON  0x0A01
-#define CMD_LED_OFF 0x0A02
-#define CMD_TRANSFER_DATA 0x0103
-#define CMD_STOP_SUM ((uint16_t)(0x0201))
-#define CMD_START_SUM ((uint16_t)(0x0202))
+#define CMD_LED_ON              ((uint16_t)(0x51A1))
+#define CMD_LED_OFF             ((uint16_t)(0x51A2))
+#define CMD_TRANSFER_DATA       ((uint16_t)(0x51BF))
+#define CMD_STOP_SUM            ((uint16_t)(0x51B3))
+#define CMD_START_SUM           ((uint16_t)(0x51BC))
 
 //------------------------------------------------------------------------------
 
@@ -302,17 +302,20 @@ void SPI3_IRQHandler(void) {
         {
             case CMD_LED_ON:
                 //led_green_on();
-                break;
+              break;
             case CMD_LED_OFF:
                 //led_green_off();
-                break;
+              break;
             case CMD_START_SUM:
-                flag_summ = 1;
-                break;
+              cmd_reset_buf();
+              flag_summ = 1;
+              break;
             case CMD_STOP_SUM:
-                flag_summ = 0;
-                break;
+              cmd_reset_buf();
+              flag_summ = 0;
+              break;
             case CMD_TRANSFER_DATA:
+              cmd_reset_buf();
                 //led_green_on();
                 // !!!!! ADD off SPI FULL DUPLEX, 
                 //LL_SPI_SetTransferDirection(SPI3, LL_SPI_FULL_DUPLEX);
@@ -357,7 +360,7 @@ void SPI3_IRQHandler(void) {
               //LL_APB1_GRP1_ReleaseReset(LL_APB1_GRP1_PERIPH_SPI3);
 
               
-              for(uint8_t f = 0; f<220; f++) { __NOP();};
+              for(uint8_t f = 0; f<110; f++) { __NOP();};
               
               //LL_SPI_Enable(SPI3);
               //while (LL_SPI_DeInit(SPI3) == ERROR) {}; /// DE Init SPI3

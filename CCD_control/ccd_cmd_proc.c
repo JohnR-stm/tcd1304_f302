@@ -25,7 +25,19 @@ void cmd_reset_buf(void)
 
 uint8_t cmd_buf_create(uint16_t data)
 {
-  if(cnt > 0)
+  if((data & CMD_KEY_MSK) == CMD_KEY)
+  {
+    cmd_reset_buf();
+    cnt = (data & CMD_SZ_MSK);
+    if (cnt > CMD_SZ_BUF)
+    {
+      cnt = 0;
+      return 0;       /// error
+    } 
+    sz = cnt - 1;
+    return 1;         /// calc Buf size - OK
+  }
+  else if(cnt > 0)
   {
     cnt--;
     Buf_cmd[sz - cnt] = data;
@@ -33,22 +45,7 @@ uint8_t cmd_buf_create(uint16_t data)
       return 3;         /// cmd Buf is full
     return 2;           /// store Buf data - OK
   }
-  else 
-  {
-    if((data & CMD_KEY_MSK) == CMD_KEY)
-    {
-      cmd_reset_buf();
-      cnt = (data & CMD_SZ_MSK) ;
-      if (cnt > CMD_SZ_BUF)
-      {
-        cnt = 0;
-        return 0;       /// error
-      } 
-      sz = cnt - 1;
-      return 1;         /// calc Buf size - OK
-    }
-    else return 0;      /// error
-  } 
+  else return 0;        /// error
 }
 
 //----------------------------------------------------------------------------
